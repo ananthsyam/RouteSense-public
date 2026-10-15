@@ -1,0 +1,55 @@
+# Secrets, local data, caches — never commit
+.env
+.env.*
+*_target.env
+*.local.env
+.streamlit/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Certificates and local database dumps
+*.pem
+*.key
+*.sql
+*_dump.sql
+*.dump
+*.gz
+*.bson
+
+# Local data / virtualenvs
+data/
+mongodb/
+sql/
+venv/
+.venv/
+env/
+
+# One-off maintenance / migration scripts — not part of the deployment
+check_counts.py
+import_backup.py
+import_railway.py
+migrate_data.py
+migrate_schema.py
+repair_attempt_status.py
+restore_attempts.py
+scripts/
+notebooks/
+*.ipynb
+src/analytics.py
+
+# Local builds, process files and runtime output
+Procfile
+*.exe
+*.log
+*.out
+nohup.out
+*.csv
+
+# IDE / OS junk
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
