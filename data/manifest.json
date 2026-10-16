@@ -1,0 +1,78 @@
+{
+  "generated_at": "2026-10-16T00:00:00Z",
+  "repo_root": "RouteSense-public",
+  "dataset": {
+    "name": "RouteSense Delivery Failure Analytics (demo)",
+    "description": "Committed synthetic sources and a deterministic synthetic demo; full dataset from public Olist (CC BY-NC-SA 4.0) excluded.",
+    "attribution": "Olist (Brazilian E-Commerce Public Dataset) https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce CC BY-NC-SA 4.0"
+  },
+  "included": {
+    "synthetic": {
+      "drivers.csv": {
+        "path": "data/synthetic/drivers.csv",
+        "rows": 250,
+        "provenance": "Synthetic source",
+        "privacy_safe": true,
+        "committed": true
+      },
+      "vehicles.csv": {
+        "path": "data/synthetic/vehicles.csv",
+        "rows": 250,
+        "provenance": "Synthetic source",
+        "privacy_safe": true,
+        "committed": true
+      },
+      "routes.csv": {
+        "path": "data/synthetic/routes.csv",
+        "rows": 270,
+        "provenance": "Synthetic source",
+        "privacy_safe": true,
+        "committed": true
+      },
+      "delivery_attempts.csv": {
+        "path": "data/synthetic/delivery_attempts.csv",
+        "rows": 107066,
+        "success": 104103,
+        "failed": 2963,
+        "status_mapping": {
+          "SUCCESS": "Delivered",
+          "FAILED": "Failed"
+        },
+        "provenance": "Synthetic source",
+        "privacy_safe": true,
+        "committed": true
+      }
+    },
+    "demo": {
+      "customers.csv": {"rows": 300, "db_ready": true, "committed": true},
+      "drivers.csv": {"rows": 250, "db_ready": true, "committed": true},
+      "vehicles.csv": {"rows": 250, "db_ready": true, "committed": true},
+      "routes.csv": {"rows": 270, "db_ready": true, "committed": true},
+      "orders.csv": {"rows": 300, "db_ready": true, "committed": true},
+      "delivery_attempts.csv": {"rows": 324, "db_ready": true, "committed": true}
+    }
+  },
+  "excluded": {
+    "data/raw/olist_*.csv": {"reason": "Third-party (CC BY-NC-SA 4.0); not redistributed"},
+    "data/cleaned/": {"reason": "Derived; can be regenerated"},
+    "data/analytics/": {"reason": "Aggregates; regenerable"},
+    "data/Data.zip": {"reason": "Stale snapshot; superseded"},
+    "mongodb/delivery_events.json": {"reason": "Large; not needed for public repo"},
+    "sql/delivery_db_backup.sql": {"reason": "Stale export; inconsistent counts; not authoritative"},
+    "railway.exe": {"reason": "Binary; not published"},
+    "local-only migration scripts": {"reason": "Infrastructure-specific; excluded"}
+  },
+  "full_dataset_targets": {
+    "customers": 99441,
+    "orders": 99441,
+    "routes": 270,
+    "drivers": 250,
+    "vehicles": 250,
+    "delivery_attempts": 107066,
+    "attempt_status": {"SUCCESS": 104103, "FAILED": 2963}
+  },
+  "verification": {
+    "validator": "scripts/validate_data.py",
+    "tests": ["tests/test_data_integrity.py"]
+  }
+}

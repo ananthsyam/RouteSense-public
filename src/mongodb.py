@@ -11,7 +11,9 @@ from pymongo.errors import (
     ServerSelectionTimeoutError,
 )
 
-load_dotenv(override=True)
+# Local ``.env`` is a developer convenience only; real environment variables
+# and Streamlit secrets always win (see :mod:`src.database`).
+load_dotenv(override=False)
 
 
 DEFAULT_DATABASE = "routesense"

@@ -5,6 +5,7 @@ logout, and blocked unauthenticated access.
 """
 
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -78,9 +79,74 @@ def test_password_is_never_stored_in_session_state(monkeypatch, _fresh_session):
     monkeypatch.setenv(auth.ADMIN_PASSWORD_ENV, "correct-horse")
 
     assert auth.login("correct-horse") is True
-    # Only the boolean flag may exist; never the plaintext password.
-    assert dict(_fresh_session) == {auth.SESSION_KEY: True}
+    # Only the boolean flag (and an activity timestamp) may exist; never the
+    # plaintext password or anything derived from it.
+    assert _fresh_session[auth.SESSION_KEY] is True
+    assert set(_fresh_session) <= {auth.SESSION_KEY, auth._LAST_SEEN_KEY}
     assert "correct-horse" not in repr(_fresh_session)
+
+
+def test_logout_without_login_is_safe():
+    auth.logout()
+    assert auth.is_authenticated() is False
+
+
+# ---------------------------------------------------------------------------
+# Brute-force throttling and idle expiry
+# ---------------------------------------------------------------------------
+
+
+def test_repeated_failures_lock_the_session(monkeypatch):
+    monkeypatch.setenv(auth.ADMIN_PASSWORD_ENV, "correct-horse")
+
+    for _ in range(auth.MAX_FAILED_ATTEMPTS):
+        assert auth.login("wrong-password") is False
+
+    assert auth.is_locked_out() is True
+    assert auth.lockout_remaining_seconds() > 0
+    # Even the correct password is refused while locked out.
+    assert auth.login("correct-horse") is False
+    assert auth.is_authenticated() is False
+
+
+def test_lockout_expires_and_success_resets_counters(monkeypatch, _fresh_session):
+    monkeypatch.setenv(auth.ADMIN_PASSWORD_ENV, "correct-horse")
+
+    for _ in range(auth.MAX_FAILED_ATTEMPTS):
+        auth.login("wrong-password")
+    assert auth.is_locked_out() is True
+
+    # Simulate the lockout window elapsing.
+    _fresh_session.pop(auth._LOCKOUT_KEY, None)
+    assert auth.is_locked_out() is False
+
+    assert auth.login("correct-horse") is True
+    # A successful login clears the failure counters.
+    assert auth._FAILURES_KEY not in _fresh_session
+    assert auth._LOCKOUT_KEY not in _fresh_session
+
+
+def test_failed_attempts_below_threshold_do_not_lock(monkeypatch):
+    monkeypatch.setenv(auth.ADMIN_PASSWORD_ENV, "correct-horse")
+
+    for _ in range(auth.MAX_FAILED_ATTEMPTS - 1):
+        assert auth.login("wrong-password") is False
+    assert auth.is_locked_out() is False
+    assert auth.login("correct-horse") is True
+
+
+def test_idle_session_expires(monkeypatch, _fresh_session):
+    monkeypatch.setenv(auth.ADMIN_PASSWORD_ENV, "correct-horse")
+    assert auth.login("correct-horse") is True
+    assert auth.is_authenticated() is True
+
+    # Pretend the session has been idle for longer than the timeout.
+    _fresh_session[auth._LAST_SEEN_KEY] = (
+        time.monotonic() - auth.IDLE_TIMEOUT_SECONDS - 1
+    )
+    assert auth.is_authenticated() is False
+    # The idle check revokes the whole privileged session.
+    assert auth.SESSION_KEY not in _fresh_session
 
 
 def test_logout_clears_authenticated_state(monkeypatch):
@@ -88,11 +154,6 @@ def test_logout_clears_authenticated_state(monkeypatch):
     auth.login("correct-horse")
     assert auth.is_authenticated() is True
 
-    auth.logout()
-    assert auth.is_authenticated() is False
-
-
-def test_logout_without_login_is_safe():
     auth.logout()
     assert auth.is_authenticated() is False
 

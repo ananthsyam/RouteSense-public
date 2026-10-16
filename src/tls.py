@@ -35,7 +35,12 @@ def resolve_ca(value: "str | None") -> "str | None":
 
     * ``None`` / empty  -> ``None`` (no explicit CA; driver TLS defaults apply)
     * contains ``BEGIN CERTIFICATE`` -> written to a private temp file
-    * anything else     -> treated as a path and returned unchanged
+    * otherwise     -> treated as a path and returned unchanged
+
+    Raises :class:`ValueError` when the value is neither PEM content nor an
+    existing file, so a misconfigured CA fails with a clear (and safe) message
+    instead of a driver stack trace. Certificate verification is never
+    disabled.
     """
 
     if not value:
@@ -43,6 +48,12 @@ def resolve_ca(value: "str | None") -> "str | None":
 
     value = value.strip()
     if "BEGIN CERTIFICATE" not in value:
+        if not os.path.isfile(value):
+            raise ValueError(
+                "ROUTESENSE_MYSQL_SSL_CA must be PEM certificate content "
+                "(including the BEGIN/END lines) or the path to an existing "
+                "certificate file. TLS verification was not disabled."
+            )
         return value
 
     digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]

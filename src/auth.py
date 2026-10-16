@@ -11,12 +11,22 @@ Design rules:
 * The plaintext password is never stored, returned, logged or printed. Only a
   boolean ``authenticated`` flag is kept in ``st.session_state``.
 * Comparison uses :func:`hmac.compare_digest` to avoid timing leaks.
+* Brute-force attempts are throttled **per browser session**: after
+  :data:`MAX_FAILED_ATTEMPTS` consecutive failures the session is locked for
+  :data:`LOCKOUT_SECONDS`, and an authenticated session expires after
+  :data:`IDLE_TIMEOUT_SECONDS` of inactivity.
+
+Honest limitation: session-scoped throttling is *not* global rate limiting. A
+visitor who starts a fresh session gets a fresh allowance, so it slows manual
+guessing rather than defending against a distributed attacker. A strong,
+random administrator password remains the primary control.
 """
 
 from __future__ import annotations
 
 import hmac
 import os
+import time
 
 try:  # Streamlit is a hard dependency of the app; keep the import soft.
     import streamlit as st
@@ -28,6 +38,19 @@ ADMIN_PASSWORD_ENV = "ROUTESENSE_ADMIN_PASSWORD"
 
 #: ``st.session_state`` key holding only the authenticated flag (never the password).
 SESSION_KEY = "routesense_admin_authenticated"
+
+#: Consecutive failed logins in one browser session before a lockout.
+MAX_FAILED_ATTEMPTS = 5
+
+#: Length of the lockout (seconds) once :data:`MAX_FAILED_ATTEMPTS` is reached.
+LOCKOUT_SECONDS = 30
+
+#: Log an authenticated session out after this many seconds without activity.
+IDLE_TIMEOUT_SECONDS = 30 * 60
+
+_FAILURES_KEY = "routesense_admin_failed_attempts"
+_LOCKOUT_KEY = "routesense_admin_lockout_until"
+_LAST_SEEN_KEY = "routesense_admin_last_seen"
 
 #: Used only when there is no live Streamlit session (headless / unit tests).
 _FALLBACK_STATE: dict = {}
@@ -87,11 +110,55 @@ def verify_password(supplied) -> bool:
         return False
 
 
-def is_authenticated() -> bool:
-    """Whether the current session has already authenticated."""
+def lockout_remaining_seconds() -> float:
+    """Seconds left in the current session's lockout (``0`` when not locked)."""
 
     try:
-        return bool(_session_state().get(SESSION_KEY, False))
+        until = float(_session_state().get(_LOCKOUT_KEY, 0) or 0)
+    except Exception:  # pragma: no cover - defensive
+        return 0.0
+    remaining = until - time.monotonic()
+    return remaining if remaining > 0 else 0.0
+
+
+def is_locked_out() -> bool:
+    """Whether the current session is temporarily locked out."""
+
+    return lockout_remaining_seconds() > 0
+
+
+def _register_failure(state) -> None:
+    """Count a failed attempt and start a lockout once the limit is reached."""
+
+    try:
+        attempts = int(state.get(_FAILURES_KEY, 0) or 0) + 1
+        _session_state()[_FAILURES_KEY] = attempts
+        if attempts >= MAX_FAILED_ATTEMPTS:
+            _session_state()[_LOCKOUT_KEY] = time.monotonic() + LOCKOUT_SECONDS
+    except Exception:  # pragma: no cover - defensive
+        pass
+
+
+def is_authenticated() -> bool:
+    """Whether the current session is authenticated and still active.
+
+    Enforces :data:`IDLE_TIMEOUT_SECONDS`: an authenticated session that has
+    been idle for too long is revoked and reported as unauthenticated.
+    """
+
+    state = _session_state()
+    try:
+        if not state.get(SESSION_KEY, False):
+            return False
+
+        last_seen = float(state.get(_LAST_SEEN_KEY, 0) or 0)
+        now = time.monotonic()
+        if IDLE_TIMEOUT_SECONDS and last_seen and (now - last_seen) > IDLE_TIMEOUT_SECONDS:
+            logout()
+            return False
+
+        state[_LAST_SEEN_KEY] = now
+        return True
     except Exception:  # pragma: no cover - defensive
         return False
 
@@ -100,21 +167,35 @@ def login(supplied) -> bool:
     """Authenticate ``supplied`` and, on success, flag the session.
 
     Returns ``True`` on success. The password itself is discarded immediately.
+    Failed attempts are counted and lock the session once
+    :data:`MAX_FAILED_ATTEMPTS` is reached.
     """
 
-    if not verify_password(supplied):
+    state = _session_state()
+
+    if lockout_remaining_seconds() > 0:
         return False
+
+    if not verify_password(supplied):
+        _register_failure(state)
+        return False
+
     try:
-        _session_state()[SESSION_KEY] = True
+        state[SESSION_KEY] = True
+        state[_LAST_SEEN_KEY] = time.monotonic()
+        state.pop(_FAILURES_KEY, None)
+        state.pop(_LOCKOUT_KEY, None)
     except Exception:  # pragma: no cover - defensive
         return False
     return True
 
 
 def logout() -> None:
-    """Clear the authenticated flag for the current session."""
+    """Clear the authenticated flag and all privileged session data."""
 
-    try:
-        _session_state().pop(SESSION_KEY, None)
-    except Exception:  # pragma: no cover - defensive
-        pass
+    state = _session_state()
+    for key in (SESSION_KEY, _LAST_SEEN_KEY, _FAILURES_KEY, _LOCKOUT_KEY):
+        try:
+            state.pop(key, None)
+        except Exception:  # pragma: no cover - defensive
+            pass
