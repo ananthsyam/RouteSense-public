@@ -1,244 +1,516 @@
-# RouteSense — Delivery Intelligence & Route Risk Analysis
+# 🚚 RouteSense — Delivery Intelligence & Route Risk Analysis
 
-RouteSense is a Streamlit application for last-mile delivery analytics, built for the DCDS project. It combines structured relational data (MySQL) with optional event data (MongoDB Atlas) to help explore delivery performance, identify failure patterns and hotspots, and inspect the database directly through a controlled CRUD interface with visible SQL execution.
+**RouteSense** is a database-driven delivery intelligence platform that helps analyze last-mile delivery performance, identify recurring delivery failures, explore route-level risk, and inspect the SQL operations behind an interactive analytics application.
 
-## 1. Project Overview
+Built with **Python, Streamlit, MySQL, and MongoDB**, the project combines relational data management, delivery analytics, and a practical interface for exploring and maintaining delivery records.
+
+The project demonstrates how database systems can support operational analytics through SQL queries, relational integrity, CRUD operations, and transparent query execution.
+
+---
+
+## Overview
+
+Last-mile delivery systems generate information about orders, delivery attempts, routes, drivers, vehicles, delays, and failures. Without a structured way to analyze this information, identifying recurring problems and maintaining consistent records can become difficult.
+
+RouteSense brings these capabilities together in one application. Users can explore delivery analytics through an interactive dashboard, while authorized administrators can manage records in MySQL and inspect the SQL statements executed by the application.
 
 RouteSense analyses operational delivery data across customers, orders, routes, drivers, vehicles and delivery attempts. The application presents interactive dashboards for delivery overview, failure analysis, route hotspots and route exploration. A System Status page surfaces live connectivity, and a gated Database Management page provides controlled write access to the six core tables. The SQL Query Inspector makes the application's executed SQL (templates and bound parameters) visible for each read query, supporting transparency and reproducibility.
 
-**Key goals:**
-- Make delivery performance measurable and explorable via interactive charts.
-- Enforce a fail-closed administrative boundary for write operations.
-- Make database execution visible (parameterised SQL, session-isolated history, redaction) without exposing an arbitrary SQL console.
-- Remain reproducible with a small, deterministic demo dataset and automated validation.
+### 📊 Delivery Overview
+- Displays total delivery attempts, delivered attempts, failed attempts, and failure rate.
+- Presents a consolidated view of delivery performance.
+- Uses SQL-backed analytics for the core delivery metrics.
 
-## 2. Features
+### 🔎 Failure Analysis
+- Analyzes unsuccessful delivery attempts and their recorded reasons.
+- Supports investigation of recurring failure patterns.
+- Provides hourly failure analysis where the available data supports it.
 
-| Page/Capability | Description |
+### 📍 Route Hotspots
+- Helps identify routes or areas associated with delivery problems.
+- Supports investigation of recurring operational risks using available route and delivery data.
+
+### 🗺️ Route Explorer
+- Allows users to explore route-related information.
+- Presents associated metadata to support route-level investigation.
+
+### 🗄️ Database Management — CRUD
+Authorized administrators can perform the four fundamental database operations:
+
+| Operation | Purpose |
 |---|---|
-| **Delivery Overview** | Summarises totals, delivered vs failed, and on-time performance for the loaded dataset. |
-| **Failure Analysis** | Breaks down failure reasons by zone and volume to surface recurring issues. |
-| **Route Hotspots** | Ranks routes by delivery failures to highlight operational risk areas. |
-| **Route Explorer** | Drills into a specific route to inspect delivery outcomes in context. |
-| **System Status** | Reports live MySQL and MongoDB Atlas connectivity, the effective database/collection names, and connection errors when present. |
-| **Database Management (CRUD)** | Authenticated Create/Read/Update/Delete for all six core tables. Gated by administrator password; only a boolean flag is stored in session state. Includes search, filtering, pagination and deletion confirmation. |
-| **SQL Query Inspector** | Displays the exact SQL templates and bound parameters executed by the application for read operations, with timing and affected-row counts. Session-isolated and redacted. Not an arbitrary SQL console. |
-| **MongoDB Atlas Integration** | Optionally loads delivery events from MongoDB Atlas; gracefully falls back to SQL-derived analytics when Atlas is unavailable. |
+| Create | Add new records |
+| Read | Search, filter, and inspect existing records |
+| Update | Modify selected records |
+| Delete | Remove a selected record after confirmation |
 
-## 3. Technology Stack
+The interface validates user input and uses parameterized SQL queries to interact with MySQL. Database constraints are respected rather than bypassed to force an operation to succeed.
+
+### 🧾 SQL Query Inspector
+The SQL Query Inspector makes database operations easier to understand during development, debugging, and academic evaluation.
+
+It displays information about SQL statements executed by the application, including:
+- SQL templates.
+- Bound parameters, subject to redaction.
+- Operation status.
+- Execution duration.
+- Rows returned or affected, where available.
+- Relevant errors after sensitive information has been removed.
+
+The Inspector is read-only: it displays queries executed by the application and does not provide an arbitrary SQL execution console. Query history is designed to be isolated by Streamlit session.
+
+### 🔐 Administrative Access
+The Database Management page is protected by an administrator-password gate configured through Streamlit secrets or environment variables.
+
+The application fails closed when the required password configuration is missing. The password is not intended to be stored in application session state or committed to the repository.
+
+### 🍃 MongoDB Integration
+MongoDB Atlas provides the application's separate NoSQL data integration for delivery-event analytics. MongoDB event records and relational delivery attempts are reported separately where their record counts represent different things.
+
+### 🛡️ Database Connection and Error Handling
+- Supports MySQL connection configuration through environment variables or Streamlit secrets.
+- Supports verified TLS configuration for compatible remote MySQL hosting.
+- Provides connection-status information and graceful error handling where supported.
+- Keeps database credentials outside the public source repository.
+
+---
+
+## Technology Stack
 
 | Technology | Purpose |
 |---|---|
-| **Python** | Application logic and data processing. |
-| **Streamlit** | Interactive web UI and session state management. |
-| **MySQL 8.x** | Relational warehouse for customers, orders, routes, drivers, vehicles and delivery attempts. |
-| **MySQL Connector/Python** | TLS-aware MySQL connectivity used by the application. |
-| **MongoDB Atlas** | Optional event store for delivery-event analytics. |
-| **PyMongo** | MongoDB client used when Atlas is configured and reachable. |
-| **pandas** | Tabular data manipulation and rendering. |
-| **python-dotenv** | Local environment loading for development convenience (does not override deployed secrets). |
-| **pytest** | Automated unit/integration tests. |
+| Python | Application logic, data handling, and database integration |
+| Streamlit | Interactive web application |
+| MySQL | Relational database and CRUD operations |
+| MongoDB Atlas | NoSQL event-data integration |
+| `mysql-connector-python` | MySQL connectivity |
+| Pandas | Data processing and analytical tables |
+| PyMongo | MongoDB connectivity |
+| Pytest | Automated testing |
+| Git and GitHub | Version control and source management |
+| Streamlit Community Cloud | Application hosting |
+| Aiven MySQL | Remote MySQL hosting |
 
-## 4. Architecture
+Exact package versions and development dependencies are defined in the repository's requirements files.
+
+---
+
+## Architecture
 
 ```mermaid
-flowchart LR
-    U[User] -->|Browser| S[Streamlit App]
-    S -->|Analytics| M[MySQL: core tables]
-    S -->|Event analytics| A[MongoDB Atlas]
-    S -->|CRUD (gated)| M
-    S -->|SQL Query Inspector| I[SQL execution instrumentation]
-    I -->|parameterised SQL + metrics| S
-    Auth[Admin Auth (fail-closed)] -->|session flag only| S
-    A -.fallback.-> S
+flowchart TD
+    U[User / Administrator] --> S[Streamlit Application]
+
+    S --> O[Delivery Overview]
+    S --> F[Failure Analysis]
+    S --> H[Route Hotspots]
+    S --> R[Route Explorer]
+    S --> D[Database Management]
+    S --> Q[SQL Query Inspector]
+
+    D --> A[Admin Authentication]
+    A --> M[(MySQL Database)]
+
+    O --> M
+    F --> M
+    H --> M
+    R --> M
+    Q --> I[SQL Execution Instrumentation]
+    I --> M
+
+    S --> N[(MongoDB Atlas)]
 ```
 
-**Data flow:** Users interact with Streamlit pages. Read operations build parameterised SQL via `src/crud.py` and execute through `src/sql_inspector.py`, which records templates/parameters (redacted) per session. Write operations (CRUD) are blocked until authenticated via `src/auth.py` (fail-closed; constant-time comparison; session-scoped lockout and idle expiry). MySQL connectivity is handled by `src/database.py` with TLS verification via `src/tls.py`. MongoDB access is handled by `src/mongodb.py` with graceful degradation to SQL.
+The Streamlit application provides the user interface. MySQL handles relational records and SQL-backed analytics, while MongoDB Atlas remains a separate data source for event-related functionality.
 
-## 5. Database Design
+Database Management is restricted to authenticated administrators. The SQL Query Inspector displays application-generated SQL execution information rather than allowing arbitrary SQL submissions.
 
-RouteSense uses six core relational tables (see `sql/schema.sql`). Foreign keys enforce referential integrity; enums constrain status values.
+---
 
-| Table | Purpose | Key Relationships |
-|---|---|---|
-| `customers` | Customer identity, location (city/zone/region/pincode) | Referenced by `orders.customer_id` (FK). |
-| `drivers` | Driver identity, licence and experience | Referenced by `routes.driver_id` (FK). |
-| `vehicles` | Vehicle type/capacity and registration | Referenced by `routes.vehicle_id` (FK). |
-| `routes` | Route definition, zone/origin, distance, assigned driver/vehicle | Referenced by `orders.route_id` (FK). |
-| `orders` | Order lifecycle (dates, status, amount/freight, zone) | References `customers` and `routes`; referenced by `delivery_attempts.order_id` (FK). |
-| `delivery_attempts` | Attempt-level outcomes (attempt_no, time, status, failure reason, delay minutes) | References `orders`. |
+## Database Design
 
-**Status mapping (source → schema):** `SUCCESS` → `Delivered`, `FAILED` → `Failed`. Order status values used by the application align with the schema enums (`Delivered`, `Failed`, `Pending`, `In Transit`).
+RouteSense's relational model uses six core tables.
 
-MySQL attempts and MongoDB delivery events are separate data sources (different schemas/counting semantics). The application does not assume they must match; MongoDB analytics fall back to SQL when unavailable.
+| Table | Purpose |
+|---|---|
+| `customers` | Customer records associated with orders |
+| `orders` | Order and delivery-related information |
+| `delivery_attempts` | Individual delivery attempts, statuses, failures, and delays |
+| `routes` | Route-related information |
+| `drivers` | Driver information |
+| `vehicles` | Vehicle information |
 
-## 6. Data Assets & Integrity
+The schema uses primary keys, foreign keys, suitable data types, and other constraints to maintain relational integrity.
 
-Data provenance and what's included/excluded is documented in `data/README.md` and `data/manifest.json`. Integrity is enforced by `scripts/validate_data.py` and tested by `tests/test_data_integrity.py`.
+The precise columns, keys, relationships, and status definitions are specified in `sql/schema.sql`. The SQL files in `sql/` document the database schema and analytical queries used by the project.
 
-**Committed (safe, reproducible):**
-- `data/synthetic/` — synthetic source assets (`drivers.csv`, `vehicles.csv`, `routes.csv`, `delivery_attempts.csv`). These are privacy-safe and match documented targets for the four tables.
-- `data/demo/` — deterministic, DB-ready synthetic demo (300 orders + related, 324 attempts). Generated by `scripts/build_demo_dataset.py` for end-to-end loading via `sql/insert.sql`.
+### Delivery Statuses
 
-**Excluded (not committed):** raw Olist CSVs, cleaned/enriched outputs, large MongoDB JSON, stale SQL backup, and one-off migration tooling. Reasons and acquisition guidance are in `docs/EXCLUDED_ASSETS.md` and `data/README.md`.
+The current documented delivery-attempt source uses:
 
-**Verified full-dataset targets (documented):** 99,441 customers; 99,441 orders; 107,066 delivery attempts (104,103 Delivered/SUCCESS, 2,963 Failed); 270 routes; 250 drivers; 250 vehicles.
+| Source status | SQL application status |
+|---|---|
+| `SUCCESS` | `Delivered` |
+| `FAILED` | `Failed` |
 
-**Validate data:** `python scripts/validate_data.py` (demo) or `python scripts/validate_data.py --source-targets` (synthetic sources vs targets). Schema↔app consistency is validated automatically.
+These values must be mapped consistently when source files are loaded into the relational schema.
 
-## 7. Repository Structure
+The application should use database records for its metrics instead of hardcoding expected dashboard numbers.
+
+---
+
+## Dataset and Data Integrity
+
+The repository includes a compact demo dataset and permitted synthetic source data for reproducibility and testing.
+
+- `data/demo/` contains the compact relational demo dataset.
+- `data/synthetic/` contains the bundled synthetic source files.
+- `data/README.md` explains the available data assets and their intended use.
+- `data/manifest.json` records dataset metadata and validation expectations.
+- `scripts/build_demo_dataset.py` builds the demo dataset.
+- `scripts/validate_data.py` checks schema consistency and supported dataset integrity rules.
+
+The documented current full-dataset profile is:
+
+| Table | Expected records |
+|---|---:|
+| `customers` | 99,441 |
+| `orders` | 99,441 |
+| `delivery_attempts` | 107,066 |
+| `routes` | 270 |
+| `drivers` | 250 |
+| `vehicles` | 250 |
+| **Total** | **306,718** |
+
+For the documented delivery-attempt source, the expected status distribution is:
+
+| Status | Records |
+|---|---:|
+| `SUCCESS` | 104,103 |
+| `FAILED` | 2,963 |
+| **Total** | **107,066** |
+
+**These figures describe the validated full-dataset profile, not the size of the compact demo dataset.** Consult the data manifest and validation scripts to establish exactly which records are bundled in a particular repository revision.
+
+The older database backup is not the authoritative current dataset and should not be used to replace the current source data.
+
+Third-party data that is not included must be obtained and used in accordance with its original license, attribution requirements, and applicable privacy restrictions. The project should not redistribute private or unauthorized customer-level records.
+
+---
+
+## Repository Structure
 
 ```text
 RouteSense-public/
-├── .env.example
-├── .github/workflows/ci.yml
 ├── app.py
+├── src/
+│   ├── auth.py
+│   ├── crud.py
+│   ├── database.py
+│   ├── mongodb.py
+│   ├── redact.py
+│   ├── sql_inspector.py
+│   └── tls.py
+├── sql/
+│   ├── schema.sql
+│   ├── insert.sql
+│   ├── advanced_queries.sql
+│   ├── procedures.sql
+│   └── reset_database.sql
 ├── data/
+│   ├── demo/
+│   ├── synthetic/
 │   ├── README.md
-│   ├── demo/                # deterministic DB-ready demo CSVs
-│   ├── manifest.json
-│   └── synthetic/           # synthetic source assets
-├── docs/
-│   └── EXCLUDED_ASSETS.md
-├── notebooks/                # sanitized coursework notebooks
-├── requirements.txt
-├── requirements-dev.txt
+│   └── manifest.json
 ├── scripts/
 │   ├── build_demo_dataset.py
 │   └── validate_data.py
-├── sql/
-│   ├── advanced_queries.sql
-│   ├── insert.sql
-│   ├── procedures.sql
-│   ├── reset_database.sql
-│   └── schema.sql
-├── src/
-│   ├── __init__.py
-│   ├── auth.py               # fail-closed auth + lockout + idle expiry
-│   ├── crud.py               # validated CRUD + SQL templates
-│   ├── database.py           # MySQL connection + TLS
-│   ├── mongodb.py            # Atlas access + fallback
-│   ├── redact.py             # redaction helpers
-│   ├── sql_inspector.py      # parameterised SQL instrumentation
-│   └── tls.py                # CA resolution with verification
-└── tests/                    # unit/integration tests + data integrity
+├── tests/
+├── notebooks/
+├── docs/
+│   └── EXCLUDED_ASSETS.md
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+├── .env.example
+├── .gitignore
+├── requirements.txt
+├── requirements-dev.txt
+└── README.md
 ```
 
-## 8. Getting Started
+This describes the intended organization. Consult the repository tree for the exact contents of a particular revision.
+
+---
+
+## Getting Started
 
 ### Prerequisites
-- Python 3.12+ (tested on 3.14.5 locally; CI uses 3.12/3.13)
-- MySQL 8.x (local or managed, TLS-capable)
-- Optional: MongoDB Atlas
 
-### Clone
+- Python compatible with the versions specified in the repository configuration.
+- Git.
+- A configured MySQL database.
+- A configured MongoDB Atlas deployment if using the MongoDB-backed functionality.
+- Appropriate database credentials.
+
+### 1. Clone the repository
+
 ```bash
 git clone https://github.com/ananthsyam/RouteSense-public.git
 cd RouteSense-public
 ```
 
-### Setup environment (Windows PowerShell)
+### 2. Create a virtual environment
+
+On Windows PowerShell:
+
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install --upgrade pip
-pip install -r requirements.txt
-pip install -r requirements-dev.txt  # for tests/validation
 ```
 
-### Configure
-Create a local `.env` (never committed) or configure Streamlit Secrets on deployment. See `.env.example` for the full list of environment variables. All configuration keys are documented in Section 9.
+On macOS or Linux:
 
-### Initialise database (local MySQL)
-```sql
-CREATE DATABASE IF NOT EXISTS delivery_db CHARACTER SET utf8mb4;
-USE delivery_db;
-source sql/schema.sql;   -- non-destructive
-source sql/insert.sql;   -- loads data/demo/*.csv (requires local_infile)
+```bash
+python -m venv .venv
+source .venv/bin/activate
 ```
 
-> `sql/schema.sql` is idempotent and never drops databases/tables. For a clean rebuild in disposable environments only, use `sql/reset_database.sql` (explicitly destructive, read warnings first).
+### 3. Install dependencies
 
 ### Load/validate data
 ```bash
-python scripts/validate_data.py           # validate demo dataset
-python scripts/validate_data.py --source-targets  # verify synthetic sources
-python scripts/build_demo_dataset.py --orders 300  # regenerate deterministic demo
+python -m pip install --upgrade pip
+pip install -r requirements.txt
 ```
 
-### Run the app
+For development and testing, install the additional dependencies if required:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+### 4. Configure the application
+
+Create a local `.env` file from `.env.example`:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Open `.env` and replace the example values with configuration for your own development databases.
+
+Do not commit `.env`.
+
+### 5. Prepare the database
+
+Use the actual schema and data-loading instructions maintained in `sql/` and `data/README.md`.
+
+For a disposable development database, create or select the intended database and apply `sql/schema.sql` using the database setup procedure documented by the project.
+
+Load only an authorized dataset that matches the expected schema.
+
+**Do not run `sql/reset_database.sql` against an existing or production database.** Any reset operation must be deliberate and limited to a disposable development environment.
+
+### 6. Validate the available data
+
+From the repository root:
+
+```bash
+python scripts/validate_data.py --source-targets
+```
+
+Review the validator output before using the dataset. The validator checks supported schema and dataset integrity conditions; it does not prove that an external production database is connected.
+
+### 7. Run RouteSense locally
+
 ```bash
 streamlit run app.py
 ```
 
-## 9. Configuration Reference
+Open the local URL printed by Streamlit, typically:
 
-All configuration is read from environment variables. On Streamlit Community Cloud, values in Secrets are copied into the environment at startup (see `app.load_streamlit_secrets()`).
+`http://localhost:8501`
 
-| Variable | Required | Purpose |
-|---|---|---|
-| `ROUTESENSE_ADMIN_PASSWORD` | Yes (to unlock CRUD) | Administrator password for Database Management. Missing/empty → CRUD locked (fail-closed). Never stored; constant-time comparison. |
-| `ROUTESENSE_MYSQL_HOST` | Yes (for MySQL) | MySQL hostname. |
-| `ROUTESENSE_MYSQL_PORT` | No | MySQL port (default 3306). Must be integer. |
-| `ROUTESENSE_MYSQL_USER` | Yes | MySQL username. |
-| `ROUTESENSE_MYSQL_PASSWORD` | Yes | MySQL password. Never logged. |
-| `ROUTESENSE_MYSQL_DATABASE` | No | MySQL database name (default `delivery_db`). |
-| `ROUTESENSE_MYSQL_SSL_CA` | No | TLS CA: either an existing file path, or PEM certificate content (including BEGIN/END). Certificate verification is never disabled. |
-| `ROUTESENSE_ATLAS_URI` | No | MongoDB Atlas connection string. Localhost URIs are rejected by design. |
-| `ROUTESENSE_ATLAS_USER` | No | MongoDB Atlas username (alternative auth form). |
-| `ROUTESENSE_ATLAS_PASSWORD` | No | MongoDB Atlas password (alternative auth form). |
-| `ROUTESENSE_MONGODB_DATABASE` | No | MongoDB database name (default `routesense`). |
-| `ROUTESENSE_MONGODB_COLLECTION` | No | MongoDB collection name (default `delivery_events`). |
+---
 
-**Notes:** `.env` is ignored by Git. Real values must never be committed. TLS failures produce clear, safe messages (no secret leakage).
+## Configuration
 
-## 10. Authentication, CRUD & SQL Query Inspector
+The application reads database configuration from environment variables and, when deployed on Streamlit Community Cloud, the configured Streamlit secrets. The exact settings are documented in `.env.example` and the relevant source modules.
 
-**Authentication:** Database Management is gated by `ROUTESENSE_ADMIN_PASSWORD`. Behaviour: fail-closed if missing/empty; constant-time comparison via `hmac.compare_digest`; session-scoped lockout after 5 consecutive failed attempts (30s); authenticated sessions auto-expire after 30 minutes of inactivity (idle expiry). Only a boolean `authenticated` flag + timestamps are stored in session state; the password is never stored, logged or returned. Logout clears all privileged session keys.
+### MySQL Configuration
 
-**CRUD:** Parameterised SQL, column/identifier validation against `TABLE_SPECS`, required-field and type coercion, foreign-key existence checks, duplicate-key handling, and human-readable error mapping. Delete operations require explicit confirmation. Search/filter/pagination are supported.
+| Variable | Purpose |
+|---|---|
+| `ROUTESENSE_MYSQL_HOST` | MySQL server hostname |
+| `ROUTESENSE_MYSQL_PORT` | MySQL server port |
+| `ROUTESENSE_MYSQL_USER` | Database username |
+| `ROUTESENSE_MYSQL_PASSWORD` | Database password |
+| `ROUTESENSE_MYSQL_DATABASE` | Database name |
+| `ROUTESENSE_MYSQL_SSL_CA` | Optional TLS CA configuration supported by the application |
 
-**SQL Query Inspector:** For read operations, `src/sql_inspector.py` records the SQL template, bound parameters (redacted via `src/redact.py`), execution status, duration and affected rows. History is **session-isolated** (never shared across browser sessions). Credentials/connection strings are never stored. The Inspector displays what the application actually executes — it is not an arbitrary SQL console.
+For Aiven, use the connection details provided by the actual Aiven service and use verified TLS. Depending on the execution environment, the CA configuration may be supplied through a local certificate path or certificate content, as supported by the application's TLS helper.
 
-## 11. Deployment
+Do not disable certificate verification to bypass a TLS error.
 
-**Recommended stack:** Streamlit Community Cloud (app), Aiven MySQL (relational DB), MongoDB Atlas (optional events).
+### MongoDB Atlas Configuration
 
-**Streamlit Community Cloud setup:**
-1. Create a new app from `https://github.com/ananthsyam/RouteSense-public.git`.
-2. Select branch `main` (or the audited branch for review) and entry point `app.py`.
-3. Add required Secrets: at minimum `ROUTESENSE_ADMIN_PASSWORD` and MySQL credentials (`ROUTESENSE_MYSQL_HOST`, `ROUTESENSE_MYSQL_PORT`, `ROUTESENSE_MYSQL_USER`, `ROUTESENSE_MYSQL_PASSWORD`, `ROUTESENSE_MYSQL_DATABASE`). If using Aiven TLS, include `ROUTESENSE_MYSQL_SSL_CA` as PEM content (or file path as appropriate).
-4. (Optional) Add MongoDB Atlas secrets if using event analytics.
-5. Deploy and verify via System Status.
+| Variable | Purpose |
+|---|---|
+| `ROUTESENSE_ATLAS_URI` | MongoDB Atlas connection URI |
+| `ROUTESENSE_ATLAS_USER` | Configured MongoDB username, where required by the connection helper |
+| `ROUTESENSE_ATLAS_PASSWORD` | Configured MongoDB password, where required by the connection helper |
+| `ROUTESENSE_MONGODB_DATABASE` | Optional database override |
+| `ROUTESENSE_MONGODB_COLLECTION` | Optional collection override |
 
-**Notes:** Free-tier services may become idle after inactivity; connectivity checks appear in System Status. No uptime/failover guarantees implied.
+Use the exact configuration keys expected by `src/mongodb.py`. Do not create new credentials solely to fill optional values if the existing configuration is already correct.
 
-## 12. Testing & Quality
+### Administrator Access
 
-Run all checks locally (no production DB connections):
+The following variable protects the Database Management page:
+
+`ROUTESENSE_ADMIN_PASSWORD`
+
+Set a strong, unique password in the deployment's secret settings or local environment.
+
+If the configuration is missing or empty, access to the protected management interface should remain disabled.
+
+Do not hardcode this password into Python files or the README.
+
+### Secrets and Environment Files
+
+- Keep `.env` and Streamlit secret files out of Git.
+- Do not publish actual database connection strings or credentials.
+- Do not place passwords in screenshots, issue reports, logs, or code examples.
+- Use deployment-specific secret settings rather than committing values to source control.
+
+---
+
+## SQL Query Inspector
+
+The SQL Query Inspector helps developers and evaluators understand the SQL activity generated by RouteSense.
+
+It records supported information about real application-executed database statements, such as SQL templates, execution status, duration, and row counts.
+
+The Inspector is read-only and does not act as a general SQL console. Query history should remain session-isolated, bounded, and protected by appropriate redaction so one public visitor cannot inspect another visitor's query parameters.
+
+---
+
+## Testing and Development
+
+Run the automated test suite from the repository root:
+
+```bash
+python -m pytest -q
+```
+
+Compile the application, source modules, tests, and scripts:
 
 ```bash
 python -m compileall app.py src tests scripts
-python -m pytest -q                # 63 tests
+```
+
+Validate the data:
+
+```bash
 python scripts/validate_data.py --source-targets
 ```
 
-CI (`.github/workflows/ci.yml`) runs on Python 3.12/3.13: install deps, compileall, pytest, and schema+demo validation. Tests use mocks/fakes and temporary fixtures; they do not require live database access.
+The project's tests cover supported functionality such as data integrity, authentication behavior, CRUD query handling, TLS configuration, and SQL Inspector isolation. Consult the actual test suite and CI results for the currently verified coverage.
 
-## 13. Security & Privacy
+Tests using mock or synthetic databases do not prove that a live Aiven or MongoDB Atlas deployment is reachable.
 
-- **Secrets never in Git.** `.env` ignored; `.env.example` contains placeholders only.
-- **Fail-closed by default.** Missing/empty admin password blocks all CRUD.
-- **Defence-in-depth:** constant-time password comparison; session-scoped lockout + idle expiry; parameterised SQL (identifier validation); TLS verification never disabled.
-- **Visibility without exposure:** SQL Query Inspector records redacted, session-isolated history only.
-- **Safe data handling:** private/unlicensed dataset snapshots excluded; synthetic/demo only committed. Third-party data (Olist) is not redistributed; attribution documented in `data/README.md`.
-- **Least privilege guidance:** prefer a runtime DB account limited to SELECT/INSERT/UPDATE/DELETE (schema/migrations separate). This is a recommendation (not applied automatically).
+---
 
-## 14. License & Attribution
+## Deployment
 
-No `LICENSE` file is declared in this repository at this time (licensing remains unresolved pending explicit approval). Third-party materials remain subject to their respective terms:
-- **Olist Brazilian E-Commerce Public Dataset** — [Kaggle](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce), licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/). Attribution required if redistributing.
+### Streamlit Community Cloud + Aiven MySQL
 
-## 15. Summary
+The public RouteSense application can be deployed through Streamlit Community Cloud using a GitHub repository.
 
-RouteSense demonstrates practical database engineering: a clear relational schema, validated data integrity, parameterised SQL with transparent execution, fail-closed write protection, graceful degradation for optional services, and reproducible setup via synthetic/demo data and automated validation. All behaviour is verified against the actual codebase with no placeholders or unverified claims.
+The deployment requires:
+
+1. A published version of the application code.
+2. A reachable, correctly configured MySQL database.
+3. Verified TLS settings for Aiven.
+4. MongoDB Atlas settings where MongoDB integration is enabled.
+5. The administrator password secret for CRUD access.
+
+Configure credentials in the new app's **Secrets** settings rather than embedding them into GitHub files.
+
+The application must use the actual Aiven endpoint and credentials in the deployed environment; local addresses and SSH tunnels are not substitutes for a remotely accessible database.
+
+### Railway Fallback
+
+A separate Railway deployment may be maintained as a fallback if it has its own database configuration and remains independently operational.
+
+Changing code or configuration in one deployment does not automatically make the other deployment use the same database. Review deployment-specific settings before switching traffic or changing the primary host.
+
+### Free-Tier Availability
+
+Free database services may power off after periods of inactivity. A cold start or temporary database unavailability may cause the first request to fail or take longer than expected.
+
+For demonstrations:
+- Confirm that the database service is available beforehand.
+- Test the public URL before presenting.
+- Verify the database connection and the CRUD login separately.
+- Keep an independent backup of important data.
+
+Do not assume that a free-tier service offers uninterrupted uptime.
+
+---
+
+## Security and Privacy
+
+RouteSense is designed to keep database access and secret handling separate from public source code.
+
+Important practices include:
+
+- Parameterized SQL for user-controlled database inputs.
+- Authentication for the Database Management page.
+- Explicit deletion confirmation.
+- Verified TLS when using compatible remote MySQL configurations.
+- Redaction of sensitive information in the SQL Inspector and error display.
+- Session isolation for query history.
+- Separation between public analytical views and authenticated record management.
+
+These controls reduce risk but do not guarantee absolute security. Production use requires appropriate database privileges, credential management, monitoring, backup procedures, and regular dependency reviews.
+
+---
+
+## Known Limitations
+
+- Availability depends on the configured database services and their free-tier behavior.
+- The bundled demo data is not a substitute for the complete full-dataset profile.
+- Full-dataset reproduction depends on having the authorized source data and following the documented setup process.
+- MongoDB and MySQL have separate data models and may contain different numbers of documents and records.
+- Actual connection success depends on the deployed environment's credentials, network access, and TLS configuration.
+
+Refer to the source files and validation results for the behavior verified in a particular release.
+
+---
+
+## Contributing and Maintenance
+
+Improvements should preserve database integrity, protect credentials, and include appropriate tests.
+
+Before proposing changes:
+1. Review the existing implementation and repository conventions.
+2. Keep secrets, private data, and database snapshots out of commits.
+3. Run the test suite and data validator.
+4. Check documentation for outdated commands or mismatched schema names.
+5. Verify that changes do not unintentionally affect another deployment.
+
+---
+
+## License and Dataset Attribution
+
+No license is declared here by this README alone. Consult the repository's actual `LICENSE` file, if one is present, and the documentation for individual datasets before reusing or redistributing material.
+
+Public visibility on GitHub does not by itself grant permission to reuse third-party datasets or copyrighted material. Any external dataset must be used according to its own licensing, attribution, and privacy requirements.
+
+---
+
+**RouteSense — Delivery Intelligence & Route Risk Analysis**
+
+An academic database project focused on relational data, delivery performance, database operations, and transparent SQL execution.
