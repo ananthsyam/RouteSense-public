@@ -14,7 +14,7 @@ Last-mile delivery systems generate information about orders, delivery attempts,
 
 RouteSense brings these capabilities together in one application. Users can explore delivery analytics through an interactive dashboard, while authorized administrators can manage records in MySQL and inspect the SQL statements executed by the application.
 
-## Features
+RouteSense analyses operational delivery data across customers, orders, routes, drivers, vehicles and delivery attempts. The application presents interactive dashboards for delivery overview, failure analysis, route hotspots and route exploration. A System Status page surfaces live connectivity, and a gated Database Management page provides controlled write access to the six core tables. The SQL Query Inspector makes the application's executed SQL (templates and bound parameters) visible for each read query, supporting transparency and reproducibility.
 
 ### 📊 Delivery Overview
 - Displays total delivery attempts, delivered attempts, failed attempts, and failure rate.
@@ -278,6 +278,7 @@ source .venv/bin/activate
 
 ### 3. Install dependencies
 
+### Load/validate data
 ```bash
 python -m pip install --upgrade pip
 pip install -r requirements.txt
