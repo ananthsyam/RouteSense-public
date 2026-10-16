@@ -229,22 +229,22 @@ def select_sql_template(
     descending: bool = False,
     limit: bool = True,
 ) -> str:
-    """Template for the READ query used by the Data Manager."""
+    """Template for the READ query used by the Data Manager.
+
+    The WHERE/ORDER BY/LIMIT fragments are produced by the same helpers that
+    build the *executed* query (see :func:`fetch_rows`), so the template shown
+    in the SQL Query Inspector can never drift from what actually runs.
+    """
 
     spec = get_spec(table)
     columns = list(spec["columns"])
 
-    where = []
-    if search:
-        where.append(
-            "(" + " OR ".join(f"CAST(`{c}` AS CHAR) LIKE %s" for c in columns) + ")"
-        )
-    for column in filters or {}:
-        where.append(f"`{column}` = %s")
-
     sql = f"SELECT {', '.join(f'`{c}`' for c in columns)} FROM `{table}`"
-    if where:
-        sql += " WHERE " + " AND ".join(where)
+
+    # Only the clause text is used here; the bound search value is irrelevant
+    # to the template, so a placeholder sentinel is passed for the truthy case.
+    where, _params = _build_where(columns, "%s" if search else None, filters)
+    sql += where
 
     order_column = order_by if order_by in spec["columns"] else spec["primary_key"]
     sql += f" ORDER BY `{order_column}` {'DESC' if descending else 'ASC'}"
@@ -313,7 +313,17 @@ def _run(
     ``fetch=True``.
     """
 
-    conn = get_mysql_connection()
+    try:
+        conn = get_mysql_connection()
+    except CrudError:
+        raise
+    except mysql.connector.Error as exc:
+        # Connection-level failure (host down, TLS, authentication).
+        raise CrudError(_friendly_error(exc)) from exc
+    except Exception as exc:  # missing/invalid configuration, bad port, ...
+        # The message is safe: it never contains a password or a full URI.
+        raise CrudError(str(exc)) from exc
+
     try:
         result = sql_inspector.execute(
             conn,
@@ -531,14 +541,16 @@ def fetch_rows(
     columns = list(spec["columns"])
     _validate_filter_columns(spec, filters)
 
-    where, params = _build_where(columns, search, filters)
-    order_column = order_by if order_by in spec["columns"] else spec["primary_key"]
-    direction = "DESC" if descending else "ASC"
-
-    sql = (
-        f"SELECT {', '.join(f'`{c}`' for c in columns)} FROM `{table}`{where} "
-        f"ORDER BY `{order_column}` {direction} LIMIT %s OFFSET %s"
+    # Build the executed SQL from the same template that the SQL Query
+    # Inspector displays, then add the identical bound parameters.
+    sql = select_sql_template(
+        table,
+        search=bool(search),
+        filters=filters,
+        order_by=order_by,
+        descending=descending,
     )
+    _where, params = _build_where(columns, search, filters)
     params.extend([max(int(limit), 1), max(int(offset), 0)])
 
     rows = _run(

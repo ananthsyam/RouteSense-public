@@ -996,6 +996,15 @@ def _render_delete_tab() -> None:
             st.rerun()
 
 
+def _login_lockout_message(remaining_seconds: float) -> str:
+    """Human-readable lockout notice (never reveals the configured password)."""
+
+    return (
+        "Too many failed attempts. Try again in "
+        f"{int(remaining_seconds) + 1} seconds."
+    )
+
+
 def _require_admin() -> bool:
     """Gate the CRUD page behind the administrator password.
 
@@ -1027,6 +1036,11 @@ def _require_admin() -> bool:
     st.header("Database Management")
     st.info("🔒 Administrator access required for database management.")
 
+    unlock_in = auth.lockout_remaining_seconds()
+    if unlock_in > 0:
+        st.error(_login_lockout_message(unlock_in))
+        return False
+
     with st.form("routesense_admin_login", clear_on_submit=True):
         supplied = st.text_input("Admin password", type="password")
         submitted = st.form_submit_button("Log in")
@@ -1034,6 +1048,8 @@ def _require_admin() -> bool:
     if submitted:
         if auth.login(supplied):
             st.rerun()
+        elif auth.lockout_remaining_seconds() > 0:
+            st.error(_login_lockout_message(auth.lockout_remaining_seconds()))
         else:
             st.error("Incorrect password.")
 
@@ -1872,7 +1888,10 @@ def main() -> None:
         with c1:
             if sql_available:
                 st.success("● MySQL — Connected")
-                st.write("Database: `delivery_db`")
+                st.write(
+                    "Database: "
+                    f"`{os.getenv('ROUTESENSE_MYSQL_DATABASE', 'delivery_db')}`"
+                )
             else:
                 st.error("● MySQL — Unavailable")
                 with st.expander("MySQL error"):
@@ -1881,8 +1900,14 @@ def main() -> None:
         with c2:
             if mongo_available:
                 st.success("● MongoDB Atlas — Connected")
-                st.write("Database: `routesense`")
-                st.write("Collection: `delivery_events`")
+                st.write(
+                    "Database: "
+                    f"`{os.getenv('ROUTESENSE_MONGODB_DATABASE', 'routesense')}`"
+                )
+                st.write(
+                    "Collection: "
+                    f"`{os.getenv('ROUTESENSE_MONGODB_COLLECTION', 'delivery_events')}`"
+                )
             else:
                 st.warning("● MongoDB Atlas — Unavailable")
                 with st.expander("MongoDB error"):

@@ -11,7 +11,11 @@ except ImportError:  # pragma: no cover - allows ``python src/database.py``.
     import sql_inspector
     import tls
 
-load_dotenv(override=True)
+# Load a local ``.env`` for developer convenience only. Real process
+# environment variables and Streamlit secrets (bridged into the environment by
+# ``app.load_streamlit_secrets``) always take precedence, so a stray ``.env``
+# can never silently override deployed configuration.
+load_dotenv(override=False)
 
 
 QUERY = """
@@ -72,6 +76,18 @@ JOIN vehicles v
 """
 
 
+def _env_int(name: str, default: int) -> int:
+    """Read an integer environment variable with a clear error message."""
+
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        return int(raw.strip())
+    except ValueError as exc:
+        raise RuntimeError(f"{name} must be an integer, got a non-numeric value.") from exc
+
+
 def get_mysql_connection():
     password = os.getenv("ROUTESENSE_MYSQL_PASSWORD")
 
@@ -85,12 +101,7 @@ def get_mysql_connection():
             "ROUTESENSE_MYSQL_HOST",
             "localhost"
         ),
-        "port": int(
-            os.getenv(
-                "ROUTESENSE_MYSQL_PORT",
-                "3306"
-            )
-        ),
+        "port": _env_int("ROUTESENSE_MYSQL_PORT", 3306),
         "user": os.getenv(
             "ROUTESENSE_MYSQL_USER",
             "root"

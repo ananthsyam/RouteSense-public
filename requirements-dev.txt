@@ -1,0 +1,6 @@
+# Development dependencies (test, validation, linting support)
+pytest>=9.1.1
+# Optional tools for local hardening (not installed by default):
+# pip-audit>=2.7.0
+# bandit>=1.7.9
+# ruff>=0.5.7

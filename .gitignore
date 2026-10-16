@@ -1,33 +1,60 @@
-# Secrets, local data, caches — never commit
+# =============================================================================
+# RouteSense .gitignore
+# Secrets, large local datasets and caches are never committed. The schema,
+# SQL coursework, synthetic data and scripts *are* committed (see the "not
+# ignored" notes below) because they make the project reproducible.
+# =============================================================================
+
+# --- Secrets and local configuration -----------------------------------------
 .env
 .env.*
+!.env.example
 *_target.env
 *.local.env
-.streamlit/
+.streamlit/secrets.toml
+
+# --- Python caches / build artefacts -----------------------------------------
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*.egg-info/
+build/
+dist/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .ipynb_checkpoints/
 
-# Certificates and local database dumps
-*.pem
-*.key
-*.sql
-*_dump.sql
-*.dump
-*.gz
-*.bson
-
-# Local data / virtualenvs
-data/
-mongodb/
-sql/
+# --- Virtual environments ----------------------------------------------------
 venv/
 .venv/
 env/
+ENV/
 
-# One-off maintenance / migration scripts — not part of the deployment
+# --- Certificates and database dumps (never publish) -------------------------
+# NOTE: the Aiven CA is harmless but is a deployment artefact; keep it local.
+*.pem
+*.key
+*.crt
+*.p12
+*.dump
+*.bson
+*.gz
+*.zip
+*_dump.sql
+*backup*.sql
+sql/delivery_db_backup.sql
+
+# --- Large local-only datasets (not redistributed; see data/README.md) --------
+data/raw/
+data/cleaned/
+data/analytics/
+mongodb/
+# (data/README.md, data/manifest.json, data/synthetic/ and data/demo/ ARE
+#  committed on purpose.)
+
+# --- Local-only tooling that references private infrastructure ---------------
+# Not published: one-off Railway/Aiven migration and repair scripts that target
+# a live deployment. See docs/EXCLUDED_ASSETS.md.
 check_counts.py
 import_backup.py
 import_railway.py
@@ -35,20 +62,16 @@ migrate_data.py
 migrate_schema.py
 repair_attempt_status.py
 restore_attempts.py
-scripts/
-notebooks/
-*.ipynb
 src/analytics.py
-
-# Local builds, process files and runtime output
 Procfile
 *.exe
+
+# --- Runtime output ----------------------------------------------------------
 *.log
 *.out
 nohup.out
-*.csv
 
-# IDE / OS junk
+# --- IDE / OS junk -----------------------------------------------------------
 .vscode/
 .idea/
 .DS_Store

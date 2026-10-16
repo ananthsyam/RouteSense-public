@@ -1,0 +1,26 @@
+-- =====================================================================
+-- reset_database.sql  |  DESTRUCTIVE DEVELOPMENT RESET
+-- =====================================================================
+--
+-- ############################################################
+-- #  WARNING: THIS SCRIPT DELETES THE WHOLE `delivery_db`      #
+-- #  DATABASE, INCLUDING EVERY CUSTOMER, ORDER AND ATTEMPT.    #
+-- #  THERE IS NO UNDO.                                         #
+-- ############################################################
+--
+-- This is deliberately a SEPARATE script. The normal setup path
+-- (sql/schema.sql) never drops anything, so the default installation can
+-- never destroy an existing database by accident.
+--
+-- Use this only for a throw-away local/demo MySQL server that you own, for
+-- example before re-running the full setup from scratch:
+--
+--     mysql -u root -p < sql/reset_database.sql
+--     mysql -u root -p < sql/schema.sql
+--     mysql -u root -p < sql/insert.sql
+--
+-- Point a MySQL client at a local server, never at a shared/production
+-- endpoint, and make a backup first if the data matters.
+-- =====================================================================
+
+DROP DATABASE IF EXISTS delivery_db;
